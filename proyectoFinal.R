@@ -2,9 +2,33 @@
 library(leaps)
 
 # Cargamos las tablas de los ficheros.
-WineQualityRed <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-red.csv", sep=";")
-WineQualityWhite <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-white.csv", sep=";")
+# WineQualityRed <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-red.csv", sep=";")
+# WineQualityWhite <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-white.csv", sep=";")
 
+
+######
+# Alternativa. Función que devuelve el data frame correspondiente a NombreArchivo.
+#
+# Funcionamiento:
+###
+### Se asume que el directorio de trabajo de R está situado en la carpeta "~/Documents" (Carpeta 'Mis documentos')
+### Luego se añade la ruta "/GitHub/Machine-Learning.-Wine-Quality/" a "~/Documents" por lo que se obtiene:
+###
+###     "~/Documents/GitHub/Machine-Learning.-Wine-Quality/"
+###
+### A continuacion se añade a esa ruta el nombre del fichero pasado como argumento y se lee finalemente
+### la dirección:
+###
+###     "~/Documents/GitHub/Machine-Learning.-Wine-Quality/<NombreArchivo>"
+######
+LeerFichero<-function(NombreArchivo){
+  direccion <- paste(getwd(), "/GitHub/Machine-Learning.-Wine-Quality/", NombreArchivo, sep="")
+  return(read.csv(direccion, sep=";"))  
+}
+
+# Llamamos a la función "LeerFichero".
+WineQualityRed <- LeerFichero("winequality-red.csv")
+WineQualityWhite <- LeerFichero("winequality-white.csv")
 
 # Equilibramos los datos replicando de los que menos hay hasta igualarlos, es decir, balancearlos
 # Ajustamos una función para hacerlo según el dataframe que le pasemos (vino blanco o tinto)
