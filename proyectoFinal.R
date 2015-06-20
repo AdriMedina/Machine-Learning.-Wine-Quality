@@ -74,9 +74,41 @@ White.training <- BalanceWineWhite[train_index, ]
 White.test <- BalanceWineWhite[-train_index, ]
 
 
-# Vamos a elegir las variables que más se implican para calcular la calidad del vino usando cross-validation
-regfit.fwd=regsubsets(quality~., data=BalanceWineRed, nvmax=11, method="forward")
-summary(regfit.fwd)
+##############################
+### Selección de variables ###
+##############################
+
+# Obtenemos el mejor conjunto de variables predictoras con "quality" como variable respuesta
+# usando para ello la muestra de training.
+Red.best_variables <- regsubsets(quality~., data=Red.training, nvmax=11)
+White.best_variables <- regsubsets(quality~., data=White.training, nvmax=11)
+
+# Calculamos el error del conjunto de validación para el mejor modelo de cada tamaño.
+# Para ello primero creamos una 'model matrix' a partir de la muestra de test.
+Red.test.model_matrix <- model.matrix(quality~., data=Red.test)
+White.test.model_matrix <- model.matrix(quality~., data=White.test)
+
+# Para cada uno de los tamaños de modelo (1-11) extraemos los coeficientes del conjunto "best_variables"
+# calculado antes y los usamos para realizar predicciones con el objetivo de obtener el mejor MSE.
+Red.MSE <- rep(NA,11)
+White.MSE <- rep(NA,11)
+
+for(i in 1:11){
+  Red.coeficientes_tam_iesimo <- coef(Red.best_variables, id=i)
+  White.coeficientes_tam_iesimo <- coef(White.best_variables, id=i)
+  
+  # Calculamos el MSE para los coeficientes del modelo de tamaño i-esimo.
+  Red.pred <- Red.test.model_matrix[,names(Red.coeficientes_tam_iesimo)] %*% Red.coeficientes_tam_iesimo
+  White.pred <- White.test.model_matrix[,names(White.coeficientes_tam_iesimo)] %*% White.coeficientes_tam_iesimo
+  
+  Red.MSE[i] <- mean((Red.test$quality - Red.pred)^2)
+  White.MSE[i] <- mean((White.test$quality - White.pred)^2)
+  
+}
+
+# Escoger el que ha obtenido el menor error cuadrático medio MSE.
+print(Red.MSE)
+print(White.MSE)
 
 
 
