@@ -22,7 +22,6 @@ balanceDataFrame <- function (dataset){
     # Añadimos al dataframe RedEquilibrado las filas correspondientes al index_iQuality.sample
     dataset <- rbind(dataset, balanceAux[index_iQuality.sample, ])
   }
-  
   return(dataset)
 }
 
@@ -30,6 +29,13 @@ balanceDataFrame <- function (dataset){
 # Aplicamos la función a nuestros dos dataframe
 BalanceWineRed <- balanceDataFrame(WineQualityRed)
 BalanceWineWhite <- balanceDataFrame(WineQualityWhite)
+
+
+# Mezclamos los datos del dataframe para asegurarnos que funciona la cross-validation
+rand <- sample(nrow(BalanceWineRed))
+BalanceWineRed <- BalanceWineRed[rand,]
+rand <- sample(nrow(BalanceWineWhite))
+BalanceWineWhite <- BalanceWineWhite[rand,]
 
 
 # Vamos a elegir las variables que más se implican para calcular la calidad del vino usando cross-validation
