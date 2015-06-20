@@ -1,7 +1,9 @@
 
+library(leaps)
+
 # Cargamos las tablas de los ficheros.
-WineQualityRed <- read.csv("C:/Users/Adri/Desktop/AA/practicas/proyecto/winequality-red.csv", sep=";")
-WineQualityWhite <- read.csv("C:/Users/Adri/Desktop/AA/practicas/proyecto/winequality-white.csv", sep=";")
+WineQualityRed <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-red.csv", sep=";")
+WineQualityWhite <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-white.csv", sep=";")
 
 
 # Equilibramos los datos replicando de los que menos hay hasta igualarlos, es decir, balancearlos
@@ -38,8 +40,19 @@ rand <- sample(nrow(BalanceWineWhite))
 BalanceWineWhite <- BalanceWineWhite[rand,]
 
 
-# Vamos a elegir las variables que más se implican para calcular la calidad del vino usando cross-validation
+# Dividimos los conjuntos en training y test
+train_index <- sample(seq_len(nrow(BalanceWineRed)), size = floor(0.7*nrow(BalanceWineRed)))
+Red.training <- BalanceWineRed[train_index, ]
+Red.test <- BalanceWineRed[-train_index, ]
 
+train_index <- sample(seq_len(nrow(BalanceWineWhite)), size = floor(0.7*nrow(BalanceWineWhite)))
+White.training <- BalanceWineWhite[train_index, ]
+White.test <- BalanceWineWhite[-train_index, ]
+
+
+# Vamos a elegir las variables que más se implican para calcular la calidad del vino usando cross-validation
+regfit.fwd=regsubsets(quality~., data=BalanceWineRed, nvmax=11, method="forward")
+summary(regfit.fwd)
 
 
 
