@@ -324,15 +324,22 @@ cv_knn(White.training, White.test, White.form)
 # Factorizamos la variable quality
 set.seed(1)
 Red.training$quality = as.factor(Red.training$quality)
+White.training$quality = as.factor(White.training$quality)
 
 # Ajustamos un arbol con las variables predictoras de antes
 Red.tree = tree(Red.form, Red.training)
+White.tree = tree(White.form, White.training)
 plot(Red.tree)
 text(Red.tree, pretty=0)
+plot(White.tree)
+text(White.tree, pretty=0)
+
 
 # Predecimos el arbol
 Red.tree.pred = predict(Red.tree, Red.test, type="class")
 Red.MC.tree <- table(Red.tree.pred, Red.test$quality)
+White.tree.pred = predict(White.tree, White.test, type="class")
+White.MC.tree <- table(White.tree.pred, White.test$quality)
 
 # Calculamos su error
 sum = 0
@@ -341,28 +348,39 @@ for (i in 1:6){
 }
 Red.tree.error = 1- sum/nrow(Red.test)
 
+
+sum = 0
+for (i in 1:7){
+  sum = sum + White.MC.tree[i,i]
+}
+White.tree.error = 1- sum/nrow(White.test)
+
+
 # Calculamos el tamaño optimo del arbol
 Red.cv.tree = cv.tree(Red.tree, FUN=prune.misclass)
 Red.cv.tree
+White.cv.tree = cv.tree(White.tree, FUN=prune.misclass)
+White.cv.tree
+
 
 
 
 # Podamos con el tamaño optimo
-Red.tree.prune = prune.misclass(Red.tree, best=8)
-plot(Red.tree.prune)
-text(Red.tree.prune, pretty=0)
+#Red.tree.prune = prune.misclass(Red.tree, best=8)
+#plot(Red.tree.prune)
+#text(Red.tree.prune, pretty=0)
 
-Red.tree.prune.train = predict(Red.tree.prune, Red.training, type="class")
-table(Red.tree.prune.train, Red.training$quality)
+#Red.tree.prune.train = predict(Red.tree.prune, Red.training, type="class")
+#table(Red.tree.prune.train, Red.training$quality)
 
-Red.tree.prune.test = predict(Red.tree.prune, Red.test, type="class")
-Red.MC.tree <- table(Red.tree.prune.test, Red.test$quality)
+#Red.tree.prune.test = predict(Red.tree.prune, Red.test, type="class")
+#Red.MC.tree <- table(Red.tree.prune.test, Red.test$quality)
 
-sum = 0
-for (i in 1:6){
-  sum = sum + Red.MC.tree[i,i]
-}
-Red.tree.error = 1- sum/nrow(Red.test)
+#sum = 0
+#for (i in 1:6){
+#  sum = sum + Red.MC.tree[i,i]
+#}
+#Red.tree.error = 1- sum/nrow(Red.test)
 
 
 
