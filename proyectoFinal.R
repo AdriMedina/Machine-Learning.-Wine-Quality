@@ -1,7 +1,9 @@
-
+library(class)
 library(leaps)
 library(cvTools)
 library(MASS)
+library(e1071)
+library(tree)
 
 # Cargamos las tablas de los ficheros.
 # WineQualityRed <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-red.csv", sep=";")
@@ -151,7 +153,7 @@ White.best_variables.coeficientes <- coef(White.best_variables, id=White.best_si
 
 # Guardamos las formulas con las variables seleccionadas con CV
 Red.form <- as.formula(quality~fixed.acidity+volatile.acidity+residual.sugar+chlorides+pH+sulphates+alcohol)
-White.form <- as.formula(quality~fixed.acidity+volatile.acidity+citric.acid+residual.sugar+chlorides+free.sulfur.dioxide+density+pH+sulphates)
+White.form <- as.formula(quality~fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + density+pH+sulphates)
 
 
 # Dividimos los conjuntos en training y test
@@ -167,18 +169,18 @@ White.test <- BalanceWineWhite[-train_index, ]
 
 # Vamos a empezar ajustando modelos LDA, QDA, KNN con cross-validation
 # LDA
-cv_lda <- function(dataframe, formula){
+cv_lda <- function(dfTraining, dfTest, formula){
   # Creamos los folds para el conjunto de datos, es decir, el reparto para CV
   k <- 10
-  folds <- cvFolds(nrow(dataframe), k, R=1)
+  folds <- cvFolds(nrow(dfTraining), k, R=1)
   
   # Creamos un vector para guardar los errores de CV para hacer la media después
   cvError <- matrix(NA, 1, 10)
   
   for(i in 1:k){
     # Asignamos los conjuntos de training y validacion
-    validation_set <- dataframe[folds$subsets[folds$which==i, ], ]
-    training_set <- dataframe[folds$subsets[folds$which!=i, ], ]
+    validation_set <- dfTraining[folds$subsets[folds$which==i, ], ]
+    training_set <- dfTraining[folds$subsets[folds$which!=i, ], ]
     
     # Ajustamos el modelo LDA y predecimos sobre el conjunto de validacion
     lda.fit = lda(formula, data=training_set)
@@ -189,12 +191,183 @@ cv_lda <- function(dataframe, formula){
     MC <- table(lda.class, validation_set$quality)
     cvError[1, i] = 1 - mean(lda.class==validation_set$quality)
   }
-  # Devolvemos la media de los errores acumulados
-  return(mean(cvError))
+  
+  # Ajustamos el modelo para los datos de test
+  lda.fit = lda(formula, data=dfTraining)
+  lda.pred = predict(lda.fit, dfTest)
+  lda.class = lda.pred$class
+  errorTest = 1 - mean(lda.class==dfTest$quality)
+  
+  # Guardamos los resultados
+  resultado <- cbind(mean(cvError), errorTest)
+  colnames(resultado) <- c("Training Error Rate with CV", "Test Error Rate")
+  rownames(resultado) <- "LDA"
+  
+  # Mostramos los resultados
+  print(resultado)
 }
 
+cv_lda(Red.training, Red.test, Red.form)
+cv_lda(White.training, White.test, White.form)
 
-print(cv_lda(Red.training, Red.form))
+
+
+# QDA
+cv_qda <- function(dfTraining, dfTest, formula){
+  # Creamos los folds para el conjunto de datos, es decir, el reparto para CV
+  k <- 10
+  folds <- cvFolds(nrow(dfTraining), k, R=1)
+  
+  # Creamos un vector para guardar los errores de CV para hacer la media después
+  cvError <- matrix(NA, 1, 10)
+  
+  for(i in 1:k){
+    # Asignamos los conjuntos de training y validacion
+    validation_set <- dfTraining[folds$subsets[folds$which==i, ], ]
+    training_set <- dfTraining[folds$subsets[folds$which!=i, ], ]
+    
+    # Ajustamos el modelo LDA y predecimos sobre el conjunto de validacion
+    qda.fit = qda(formula, data=training_set)
+    qda.pred = predict(qda.fit, validation_set)
+    
+    # Creamos la matriz de confusión y calculamos el error. Después lo guardamos
+    qda.class = qda.pred$class
+    MC <- table(qda.class, validation_set$quality)
+    cvError[1, i] = 1 - mean(qda.class==validation_set$quality)
+  }
+  
+  # Ajustamos el modelo para los datos de test
+  qda.fit = qda(formula, data=dfTraining)
+  qda.pred = predict(qda.fit, dfTest)
+  qda.class = qda.pred$class
+  errorTest = 1 - mean(qda.class==dfTest$quality)
+  
+  # Guardamos los resultados
+  resultado <- cbind(mean(cvError), errorTest)
+  colnames(resultado) <- c("Training Error Rate with CV", "Test Error Rate")
+  rownames(resultado) <- "QDA"
+  
+  # Mostramos los resultados
+  print(resultado)
+}
+
+cv_qda(Red.training, Red.test, Red.form)
+cv_qda(White.training, White.test, White.form)
+
+
+
+# KNN
+cv_knn <- function(dfTraining, dfTest, formula){
+  # Creamos los folds para el conjunto de datos, es decir, el reparto para CV
+  kfolds <- 10
+  folds <- cvFolds(nrow(dfTraining), kfolds, R=1)
+  
+  # Creamos un vector para guardar los errores de CV para hacer la media después
+  cvError <- matrix(NA, 1, 10)
+  
+  for(i in 1:kfolds){
+    # Asignamos los conjuntos de training y validacion
+    validation_set <- dfTraining[folds$subsets[folds$which==i, ], ]
+    training_set <- dfTraining[folds$subsets[folds$which!=i, ], ]
+    
+    training_set.quality <- training_set$quality
+    training_subset <- data.frame(training_set$fixed.acidity, training_set$volatile.acidity, 
+                               training_set$residual.sugar, training_set$chlorides, 
+                               training_set$pH, training_set$sulphates, 
+                               training_set$alcohol)
+    validation_subset <- data.frame(validation_set$fixed.acidity, validation_set$volatile.acidity, 
+                                    validation_set$residual.sugar, validation_set$chlorides, 
+                                    validation_set$pH, validation_set$sulphates, 
+                                    validation_set$alcohol)
+    
+    # Ajustamos el modelo QDA y predecimos sobre el conjunto de validacion
+    knn.pred = knn(training_subset, validation_subset, training_set.quality, k=1)
+    
+    # Creamos la matriz de confusión y calculamos el error. Después lo guardamos
+    MC <- table(knn.pred, validation_set$quality)
+    cvError[1, i] = 1 - mean(knn.pred==validation_set$quality)
+  }
+  
+  # Ajustamos el modelo para los datos de test
+  training_set.quality <- dfTraining$quality
+  
+  training_subset <- data.frame(dfTraining$fixed.acidity, dfTraining$volatile.acidity, 
+                                dfTraining$residual.sugar, dfTraining$chlorides, 
+                                dfTraining$pH, dfTraining$sulphates, 
+                                dfTraining$alcohol)
+  
+  test_subset <- data.frame(dfTest$fixed.acidity, dfTest$volatile.acidity, 
+                            dfTest$residual.sugar, dfTest$chlorides, 
+                            dfTest$pH, dfTest$sulphates, 
+                            dfTest$alcohol)
+  
+  knn.pred = knn(training_subset, test_subset, training_set.quality, k=1)
+  errorTest = 1 - mean(knn.pred==dfTest$quality)
+ 
+  # Guardamos los resultados
+  resultado <- cbind(mean(cvError), errorTest)
+  colnames(resultado) <- c("Training Error Rate with CV", "Test Error Rate")
+  rownames(resultado) <- "KNN"
+  
+  # Mostramos los resultados
+  print(resultado)
+}
+
+cv_knn(Red.training, Red.test, Red.form)
+cv_knn(White.training, White.test, White.form)
+
+
+
+
+# Tree
+
+# Factorizamos la variable quality
+set.seed(1)
+Red.training$quality = as.factor(Red.training$quality)
+
+# Ajustamos un arbol con las variables predictoras de antes
+Red.tree = tree(Red.form, Red.training)
+plot(Red.tree)
+text(Red.tree, pretty=0)
+
+# Predecimos el arbol
+Red.tree.pred = predict(Red.tree, Red.test, type="class")
+Red.MC.tree <- table(Red.tree.pred, Red.test$quality)
+
+# Calculamos su error
+sum = 0
+for (i in 1:6){
+  sum = sum + Red.MC.tree[i,i]
+}
+Red.tree.error = 1- sum/nrow(Red.test)
+
+# Calculamos el tamaño optimo del arbol
+Red.cv.tree = cv.tree(Red.tree, FUN=prune.misclass)
+Red.cv.tree
+
+
+
+# Podamos con el tamaño optimo
+Red.tree.prune = prune.misclass(Red.tree, best=8)
+plot(Red.tree.prune)
+text(Red.tree.prune, pretty=0)
+
+Red.tree.prune.train = predict(Red.tree.prune, Red.training, type="class")
+table(Red.tree.prune.train, Red.training$quality)
+
+Red.tree.prune.test = predict(Red.tree.prune, Red.test, type="class")
+Red.MC.tree <- table(Red.tree.prune.test, Red.test$quality)
+
+sum = 0
+for (i in 1:6){
+  sum = sum + Red.MC.tree[i,i]
+}
+Red.tree.error = 1- sum/nrow(Red.test)
+
+
+
+
+
 
 
 
