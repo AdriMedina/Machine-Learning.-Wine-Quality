@@ -1,5 +1,7 @@
 
 library(leaps)
+library(cvTools)
+library(MASS)
 
 # Cargamos las tablas de los ficheros.
 # WineQualityRed <- read.csv("C:/Users/Adri/Documents/GitHub/Machine-Learning.-Wine-Quality/winequality-red.csv", sep=";")
@@ -21,10 +23,18 @@ library(leaps)
 ###
 ###     "~/Documents/GitHub/Machine-Learning.-Wine-Quality/<NombreArchivo>"
 ######
+
+
+#LeerFichero<-function(NombreArchivo){
+#  direccion <- paste(getwd(), "/GitHub/Machine-Learning.-Wine-Quality/", NombreArchivo, sep="")
+#  return(read.csv(direccion, sep=";"))  
+#}
 LeerFichero<-function(NombreArchivo){
-  direccion <- paste(getwd(), "/GitHub/Machine-Learning.-Wine-Quality/", NombreArchivo, sep="")
+  direccion <- paste(getwd(), "/", NombreArchivo, sep="")
   return(read.csv(direccion, sep=";"))  
 }
+
+
 
 # Llamamos a la función "LeerFichero".
 WineQualityRed <- LeerFichero("winequality-red.csv")
@@ -64,14 +74,6 @@ rand <- sample(nrow(BalanceWineWhite))
 BalanceWineWhite <- BalanceWineWhite[rand,]
 
 
-# Dividimos los conjuntos en training y test
-train_index <- sample(seq_len(nrow(BalanceWineRed)), size = floor(0.7*nrow(BalanceWineRed)))
-Red.training <- BalanceWineRed[train_index, ]
-Red.test <- BalanceWineRed[-train_index, ]
-
-train_index <- sample(seq_len(nrow(BalanceWineWhite)), size = floor(0.7*nrow(BalanceWineWhite)))
-White.training <- BalanceWineWhite[train_index, ]
-White.test <- BalanceWineWhite[-train_index, ]
 
 
 ##############################
@@ -147,49 +149,52 @@ White.best_variables.coeficientes <- coef(White.best_variables, id=White.best_si
 
 
 
-############################################################################################
-# Obtenemos el mejor conjunto de variables predictoras con "quality" como variable respuesta
-# usando para ello la muestra de training.
-Red.best_variables <- regsubsets(quality~., data=Red.training, nvmax=11)
-White.best_variables <- regsubsets(quality~., data=White.training, nvmax=11)
+# Guardamos las formulas con las variables seleccionadas con CV
+Red.form <- as.formula(quality~fixed.acidity+volatile.acidity+residual.sugar+chlorides+pH+sulphates+alcohol)
+White.form <- as.formula(quality~fixed.acidity+volatile.acidity+citric.acid+residual.sugar+chlorides+free.sulfur.dioxide+density+pH+sulphates)
 
-# Calculamos el error del conjunto de validación para el mejor modelo de cada tamaño.
-# Para ello primero creamos una 'model matrix' a partir de la muestra de test.
-Red.test.model_matrix <- model.matrix(quality~., data=Red.test)
-White.test.model_matrix <- model.matrix(quality~., data=White.test)
 
-# Para cada uno de los tamaños de modelo (1-11) extraemos los coeficientes del conjunto "best_variables"
-# calculado antes y los usamos para realizar predicciones con el objetivo de obtener el mejor MSE.
-Red.MSE <- rep(NA,11)
-White.MSE <- rep(NA,11)
+# Dividimos los conjuntos en training y test
+train_index <- sample(seq_len(nrow(BalanceWineRed)), size = floor(0.7*nrow(BalanceWineRed)))
+Red.training <- BalanceWineRed[train_index, ]
+Red.test <- BalanceWineRed[-train_index, ]
 
-for(i in 1:11){
-  Red.coeficientes_tam_iesimo <- coef(Red.best_variables, id=i)
-  White.coeficientes_tam_iesimo <- coef(White.best_variables, id=i)
+train_index <- sample(seq_len(nrow(BalanceWineWhite)), size = floor(0.7*nrow(BalanceWineWhite)))
+White.training <- BalanceWineWhite[train_index, ]
+White.test <- BalanceWineWhite[-train_index, ]
+
+
+
+# Vamos a empezar ajustando modelos LDA, QDA, KNN con cross-validation
+# LDA
+cv_lda <- function(dataframe, formula){
+  # Creamos los folds para el conjunto de datos, es decir, el reparto para CV
+  k <- 10
+  folds <- cvFolds(nrow(dataframe), k, R=1)
   
-  # Calculamos el MSE para los coeficientes del modelo de tamaño i-esimo.
-  Red.pred <- Red.test.model_matrix[,names(Red.coeficientes_tam_iesimo)] %*% Red.coeficientes_tam_iesimo
-  White.pred <- White.test.model_matrix[,names(White.coeficientes_tam_iesimo)] %*% White.coeficientes_tam_iesimo
+  # Creamos un vector para guardar los errores de CV para hacer la media después
+  cvError <- matrix(NA, 1, 10)
   
-  Red.MSE[i] <- mean((Red.test$quality - Red.pred)^2)
-  White.MSE[i] <- mean((White.test$quality - White.pred)^2)
-  
+  for(i in 1:k){
+    # Asignamos los conjuntos de training y validacion
+    validation_set <- dataframe[folds$subsets[folds$which==i, ], ]
+    training_set <- dataframe[folds$subsets[folds$which!=i, ], ]
+    
+    # Ajustamos el modelo LDA y predecimos sobre el conjunto de validacion
+    lda.fit = lda(formula, data=training_set)
+    lda.pred = predict(lda.fit, validation_set)
+    
+    # Creamos la matriz de confusión y calculamos el error. Después lo guardamos
+    lda.class = lda.pred$class
+    MC <- table(lda.class, validation_set$quality)
+    cvError[1, i] = 1 - mean(lda.class==validation_set$quality)
+  }
+  # Devolvemos la media de los errores acumulados
+  return(mean(cvError))
 }
 
-# Escogemos el tamaño de modelo que ha obtenido el menor error cuadrático medio MSE.
-Red.tam_modelo.menor_MSE <- which.min(Red.MSE)
-White.tam_modelo.menor_MSE <- which.min(White.MSE)
 
-# Obtenemos los coeficientes de ese tamaño de modelo usando esta vez la muestra completa
-# y no solo la de training.
-Red.best_variables <- regsubsets(quality~., data=BalanceWineRed, nvmax=11)
-White.best_variables <- regsubsets(quality~., data=BalanceWineWhite, nvmax=11)
-
-# Y extraemos los coeficientes que obtuvieron menor MSE en la muestra de training
-Red.best_variables.coeficientes <- coef(Red.best_variables, id=Red.tam_modelo.menor_MSE)
-White.best_variables.coeficientes <- coef(White.best_variables, id=White.tam_modelo.menor_MSE)
-
-
+print(cv_lda(Red.training, Red.form))
 
 
 
