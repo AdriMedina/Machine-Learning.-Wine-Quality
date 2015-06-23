@@ -335,25 +335,67 @@ plot(White.tree)
 text(White.tree, pretty=0)
 
 
-# Predecimos el arbol
-Red.tree.pred = predict(Red.tree, Red.test, type="class")
-Red.MC.tree <- table(Red.tree.pred, Red.test$quality)
-White.tree.pred = predict(White.tree, White.test, type="class")
-White.MC.tree <- table(White.tree.pred, White.test$quality)
+# Predecimos el arbol para los datos de test
+Red.tree.pred.test = predict(Red.tree, Red.test, type="class")
+Red.MC.tree.test <- table(Red.tree.pred.test, Red.test$quality)
+White.tree.pred.test = predict(White.tree, White.test, type="class")
+White.MC.tree.test <- table(White.tree.pred.test, White.test$quality)
 
-# Calculamos su error
+# Predecimos el arbol para los datos de training
+Red.tree.pred.train = predict(Red.tree, Red.training, type="class")
+Red.MC.tree.train <- table(Red.tree.pred.train, Red.training$quality)
+White.tree.pred.train = predict(White.tree, White.training, type="class")
+White.MC.tree.train <- table(White.tree.pred.train, White.training$quality)
+
+
+
+# Calculamos el error de test 
 sum = 0
 for (i in 1:6){
-  sum = sum + Red.MC.tree[i,i]
+  sum = sum + Red.MC.tree.test[i,i]
 }
-Red.tree.error = 1- sum/nrow(Red.test)
-
+Red.tree.error.test = 1- sum/nrow(Red.test)
+print(Red.tree.error.test)
 
 sum = 0
 for (i in 1:7){
-  sum = sum + White.MC.tree[i,i]
+  sum = sum + White.MC.tree.test[i,i]
 }
-White.tree.error = 1- sum/nrow(White.test)
+White.tree.error.test = 1- sum/nrow(White.test)
+print(White.tree.error.test)
+
+
+
+# Calculamos el error de training 
+sum = 0
+for (i in 1:6){
+  sum = sum + Red.MC.tree.train[i,i]
+}
+Red.tree.error.train = 1- sum/nrow(Red.training)
+print(Red.tree.error.train)
+
+sum = 0
+for (i in 1:7){
+  sum = sum + White.MC.tree.train[i,i]
+}
+White.tree.error.train = 1- sum/nrow(White.training)
+print(White.tree.error.train)
+
+
+# Mostramos los resultados obtenidos
+resultadoRed <- cbind(Red.tree.error.train, Red.tree.error.test)
+colnames(resultadoRed) <- c("Training Error Rate", "Test Error Rate")
+rownames(resultadoRed) <- c("Árbol")
+print(resultadoRed)
+
+
+resultadoWhite <- cbind(White.tree.error.train, White.tree.error.test)
+colnames(resultadoWhite) <- c("Training Error Rate", "Test Error Rate")
+rownames(resultadoWhite) <- c("Árbol")
+print(resultadoWhite)
+
+
+
 
 
 # Calculamos el tamaño optimo del arbol
